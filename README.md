@@ -141,11 +141,11 @@ namespace vnitest {
 
 // Find and sequentially execute a sequence of test cases specified by a list of names/regex patterns
 ::std::vector<::vnitest::ExecuteCaseInfo> execute_case(
-    ::std::vector<std::variant<std::string_view, ::std::regex>> const&
+    ::std::vector<::std::variant<::std::string_view, ::std::regex>> const&
         case_name_list
 ) noexcept;
 ::std::vector<::vnitest::ExecuteCaseInfo> execute_case(
-    ::std::initializer_list<std::variant<std::string_view, ::std::regex>>
+    ::std::initializer_list<::std::variant<::std::string_view, ::std::regex>>
         case_name_list
 ) noexcept;
 
@@ -519,11 +519,11 @@ namespace vnitest {
 
 // Find and sequentially execute a sequence of test groups specified by a list of names/regex patterns
 ::std::vector<::vnitest::ExecuteGroupInfo> execute_group(
-    ::std::vector<std::variant<std::string_view, ::std::regex>> const&
+    ::std::vector<::std::variant<::std::string_view, ::std::regex>> const&
         group_name_list
 ) noexcept;
 ::std::vector<::vnitest::ExecuteGroupInfo> execute_group(
-    ::std::initializer_list<std::variant<std::string_view, ::std::regex>>
+    ::std::initializer_list<::std::variant<::std::string_view, ::std::regex>>
         group_name_list
 ) noexcept;
 

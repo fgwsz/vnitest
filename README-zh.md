@@ -143,11 +143,11 @@ namespace vnitest{
 
 //通过名称/正则表达式的序列组合来查找并顺序执行一个测试单元序列
 ::std::vector<::vnitest::ExecuteCaseInfo> execute_case(
-    ::std::vector<std::variant<std::string_view,::std::regex>> const&
+    ::std::vector<::std::variant<::std::string_view,::std::regex>> const&
         case_name_list
 )noexcept;
 ::std::vector<::vnitest::ExecuteCaseInfo> execute_case(
-    ::std::initializer_list<std::variant<std::string_view,::std::regex>>
+    ::std::initializer_list<::std::variant<::std::string_view,::std::regex>>
         case_name_list
 )noexcept;
 
@@ -559,11 +559,11 @@ namespace vnitest{
 
 //通过名称/正则表达式的序列组合来查找并顺序执行一个测试组序列
 ::std::vector<::vnitest::ExecuteGroupInfo> execute_group(
-    ::std::vector<std::variant<std::string_view,::std::regex>> const&
+    ::std::vector<::std::variant<::std::string_view,::std::regex>> const&
         group_name_list
 )noexcept;
 ::std::vector<::vnitest::ExecuteGroupInfo> execute_group(
-    ::std::initializer_list<std::variant<std::string_view,::std::regex>>
+    ::std::initializer_list<::std::variant<::std::string_view,::std::regex>>
         group_name_list
 )noexcept;
 

@@ -6,7 +6,9 @@
 #include<array>//::std::array
 #include<charconv>//::std::to_chars
 #include<format>//::std::format
-#include<string>//::std::to_string
+#include<string>//::std::string ::std::to_string
+#include<ios>//::std::hex ::std::uppercase
+#include<iomanip>//::std::setw ::std::setfill
 #include<sstream>//::std::ostringstream
 
 namespace vnitest{
@@ -28,8 +30,8 @@ namespace detail{
             default  :{
                 //ASCII 0-31
                 if(static_cast<unsigned char>(ch)<=0x1F){
-                    oss<<"\\u00"<<std::hex<<std::uppercase
-                        <<std::setw(2)<<std::setfill('0')
+                    oss<<"\\u00"<<::std::hex<<::std::uppercase
+                        <<::std::setw(2)<<::std::setfill('0')
                         <<static_cast<unsigned int>(
                             static_cast<unsigned char>(ch)
                         );

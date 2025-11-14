@@ -98,7 +98,7 @@ namespace vnitest{
 }
 
 ::std::vector<::vnitest::ExecuteCaseInfo> execute_case(
-    ::std::vector<std::variant<std::string_view,::std::regex>> const&
+    ::std::vector<::std::variant<::std::string_view,::std::regex>> const&
         case_name_list
 )noexcept{
     ::std::vector<::vnitest::ExecuteCaseInfo> ret={};
@@ -132,11 +132,11 @@ namespace vnitest{
 }
 
 ::std::vector<::vnitest::ExecuteCaseInfo> execute_case(
-    ::std::initializer_list<std::variant<std::string_view,::std::regex>>
+    ::std::initializer_list<::std::variant<::std::string_view,::std::regex>>
         case_name_list
 )noexcept{
     return ::vnitest::execute_case(
-        ::std::vector<std::variant<std::string_view,::std::regex>>{
+        ::std::vector<::std::variant<::std::string_view,::std::regex>>{
             case_name_list
         }
     );
@@ -208,7 +208,7 @@ namespace vnitest{
 }
 
 ::std::vector<::vnitest::ExecuteGroupInfo> execute_group(
-    ::std::vector<std::variant<std::string_view,::std::regex>> const&
+    ::std::vector<::std::variant<::std::string_view,::std::regex>> const&
         group_name_list
 )noexcept{
     ::std::vector<::vnitest::ExecuteGroupInfo> ret={};
@@ -228,11 +228,11 @@ namespace vnitest{
 }
 
 ::std::vector<::vnitest::ExecuteGroupInfo> execute_group(
-    ::std::initializer_list<std::variant<std::string_view,::std::regex>>
+    ::std::initializer_list<::std::variant<::std::string_view,::std::regex>>
         group_name_list
 )noexcept{
     return ::vnitest::execute_group(
-        ::std::vector<std::variant<std::string_view,::std::regex>>{
+        ::std::vector<::std::variant<::std::string_view,::std::regex>>{
             group_name_list
         }
     );
@@ -265,18 +265,18 @@ namespace vnitest{
 }
 
 ::std::string execute_case_to_json(
-    ::std::vector<std::variant<std::string_view,::std::regex>> const&
+    ::std::vector<::std::variant<::std::string_view,::std::regex>> const&
         case_name_list
 )noexcept{
     return ::vnitest::to_json(::vnitest::execute_case(case_name_list));
 }
 
 ::std::string execute_case_to_json(
-    ::std::initializer_list<std::variant<std::string_view,::std::regex>>
+    ::std::initializer_list<::std::variant<::std::string_view,::std::regex>>
         case_name_list
 )noexcept{
     return ::vnitest::execute_case_to_json(
-        ::std::vector<std::variant<std::string_view,::std::regex>>{
+        ::std::vector<::std::variant<::std::string_view,::std::regex>>{
             case_name_list
         }
     );
@@ -300,7 +300,7 @@ namespace vnitest{
 }
 
 ::std::string execute_group_to_json(
-    ::std::vector<std::variant<std::string_view,::std::regex>> const&
+    ::std::vector<::std::variant<::std::string_view,::std::regex>> const&
         group_name_list
 )noexcept{
     return
@@ -308,11 +308,11 @@ namespace vnitest{
 }
 
 ::std::string execute_group_to_json(
-    ::std::initializer_list<std::variant<std::string_view,::std::regex>>
+    ::std::initializer_list<::std::variant<::std::string_view,::std::regex>>
         group_name_list
 )noexcept{
     return ::vnitest::execute_group_to_json(
-        ::std::vector<std::variant<std::string_view,::std::regex>>{
+        ::std::vector<::std::variant<::std::string_view,::std::regex>>{
             group_name_list
         }
     );

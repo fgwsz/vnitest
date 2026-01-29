@@ -43,7 +43,7 @@ public:
             return *this;
         }
         this->clear();
-        rhs->foreach(
+        rhs.foreach(
             [this](KeyType__ const& key,ValueType__ const& value){
                 this->insert(key,value);
             }

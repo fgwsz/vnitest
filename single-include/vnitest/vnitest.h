@@ -1,34 +1,42 @@
+#ifndef VNITEST_H
+#define VNITEST_H
 //=============================================================================
 //#include<std>
 //=============================================================================
 //C std
 #include<cstddef>//::std::size_t
-//C++ 11
-#include<ios>//std::boolalpha
+#include<cmath>//::std::isnan ::std::isinf ::std::isnormal
+//C++ 98/03
+#include<ios>//std::boolalpha ::std::hex ::std::uppercase
+#include<iomanip>//::std::setw ::std::setfill
+#include<iostream>//::std::cerr ::std::endl
+#include<sstream>//::std::ostringstream
+#include<limits>//::std::numeric_limits
 #include<utility>//::std::forward ::std::move
 #include<iterator>//::std::begin ::std::end
 #include<algorithm>//::std::copy
-#include<type_traits>//::std::remove_cvref_t
-                     //::std::is_same_v ::std::decay_t
-#include<initializer_list>//::std::initializer_list
-#include<string>//::std::string
+#include<string>//::std::string ::std::to_string
 #include<list>//::std::list
 #include<vector>//::std::vector
-#include<unordered_map>//::std::unordered_map
-#include<tuple>//::std::tuple
 #include<functional>//::std::function
 #include<exception>//::std::exception
 #include<stdexcept>//::std::runtime_error
-#include<sstream>//::std::ostringstream
-#include<regex>//::std::regex
+//C++ 11
+#include<type_traits>//::std::remove_cvref_t ::std::is_same_v ::std::decay_t
+#include<initializer_list>//::std::initializer_list
+#include<array>//::std::array
+#include<unordered_map>//::std::unordered_map
+#include<tuple>//::std::tuple
+#include<regex>//::std::regex ::std::regex_match
+#include<chrono>//::std::chrono
 //C++ 17
 #include<optional>//::std::optional
 #include<variant>//::std::variant
 #include<string_view>//::std::string_view
-//maybe C++20
-#include<chrono>//::std::chrono
+#include<charconv>//::std::to_chars
 //C++ 20
 #include<source_location>//::std::source_location
+#include<format>//::std::format
 //=============================================================================
 //#include<vnitest/timer.h>
 //=============================================================================
@@ -401,7 +409,7 @@ public:
             return *this;
         }
         this->clear();
-        rhs->foreach(
+        rhs.foreach(
             [this](KeyType__ const& key,ValueType__ const& value){
                 this->insert(key,value);
             }
@@ -1490,3 +1498,1422 @@ struct TypeNotEqual{};
         ; \
     }() \
 //
+//============================================================================
+//#include<vnitest/timer.cpp>
+//============================================================================
+namespace vnitest{
+
+Timer::Timer(void)noexcept
+    :start_time_(::std::chrono::steady_clock::now())
+    ,total_duration_(0.0)
+    ,state_(State::STOPPED)
+{}
+void Timer::start(void)noexcept{
+    if(this->state_==State::STOPPED){
+        this->start_time_=::std::chrono::steady_clock::now();
+        this->state_=State::RUNNING;
+    }
+}
+void Timer::stop(void)noexcept{
+    if(this->state_==State::RUNNING){
+        this->total_duration_=
+            ::std::chrono::duration_cast<::std::chrono::nanoseconds>(
+                ::std::chrono::steady_clock::now()-this->start_time_
+            ).count()
+            +this->total_duration_;
+        this->state_=State::STOPPED;
+    }
+}
+void Timer::reset(void)noexcept{
+    this->total_duration_=0;
+    if(this->state_==State::RUNNING){
+        this->start_time_=::std::chrono::steady_clock::now();
+    }
+}
+double Timer::duration_nanoseconds(void)const noexcept{
+    return this->total_duration_;
+}
+double Timer::duration_microseconds(void)const noexcept{
+    return this->total_duration_/1000.0;
+}
+double Timer::duration_milliseconds(void)const noexcept{
+    return this->total_duration_/1000'000.0;
+}
+double Timer::duration_seconds(void)const noexcept{
+    return this->total_duration_/1000'000'000.0;
+}
+double Timer::duration_minutes(void)const noexcept{
+    return this->total_duration_/60'000'000'000.0;
+}
+double Timer::duration_hours(void)const noexcept{
+    return this->total_duration_/3600'000'000'000.0;
+}
+::std::string Timer::nanoseconds_to_string(double ns)noexcept{
+    struct TimeUnit{
+        unsigned long long factor;
+        char const* suffix;
+    };
+    static constexpr TimeUnit time_units[]={
+       {3600'000'000'000,"h" },//1 h
+       {60'000'000'000  ,"m" },//1 m
+       {1'000'000'000   ,"s" },//1 s
+       {1'000'000       ,"ms"},//1 ms
+       {1'000           ,"us"},//1 us
+    };
+    //优先处理零值
+    if(ns==0.0){
+        return "0 ns";
+    }
+    ::std::string ret={};
+    //处理负数
+    if(ns<0.0){
+        ret+="- ";
+        ns=-ns;
+    }
+    //直接处理小数量级别的纳秒(< 1 us)
+    if(ns<1000){
+        ret+=::std::format("{} ns",ns);
+        return ret;
+    }
+    bool first=true;
+    unsigned long long value=0;
+    unsigned long long integer_ns=static_cast<unsigned long long>(ns);//整数部分
+    double remainder_ns=ns-integer_ns;//小数部分
+    for(auto const& unit:time_units){
+        if(integer_ns<unit.factor){
+            continue;
+        }
+        value=integer_ns/unit.factor;
+        integer_ns%=unit.factor;
+        if(!first){
+            ret+=" ";
+        }
+        first=false;
+        ret+=::std::format("{} {}",value,unit.suffix);
+    }
+    ns=integer_ns+remainder_ns;
+    //处理零纳秒
+    if(ns==0){
+        return ret;
+    }
+    //处理纳秒
+    if(!first){
+        ret+=" ";
+    }
+    ret+=::std::format("{} ns",ns);
+    return ret;
+}
+::std::string Timer::duration_string(void)const noexcept{
+    return this->nanoseconds_to_string(this->total_duration_);
+}
+Timer::State Timer::get_state(void)const noexcept{
+    return this->state_;
+}
+bool Timer::is_stopped(void)const noexcept{
+    return this->state_==State::STOPPED;
+}
+bool Timer::is_running(void)const noexcept{
+    return this->state_==State::RUNNING;
+}
+
+}//namespace vnitest
+//=============================================================================
+//#include<vnitest/runtime_check_stream.cpp>
+//=============================================================================
+namespace vnitest{
+
+RuntimeCheckStream::RuntimeCheckStream(::vnitest::ConditionInfo const& ci)
+noexcept
+    :info_(ci)
+    ,message_({})
+{}
+RuntimeCheckStream::~RuntimeCheckStream(void)noexcept{
+    ::std::optional<::vnitest::RuntimeCheckFailedError> error={};
+    if(!this->info_.condition){
+        error=::vnitest::RuntimeCheckFailedError{
+            this->info_.file
+            ,this->info_.line
+            ,this->info_.info
+        };
+    }
+    if(::vnitest::ExecuteCaseInfo::has_current()){//in VNITEST_CASE
+        ::vnitest::ExecuteCaseInfo::get_current()
+            .runtime_check_total_increment();
+    }
+    if(!error.has_value()){
+        if(::vnitest::ExecuteCaseInfo::has_current()){//in VNITEST_CASE
+            ::vnitest::ExecuteCaseInfo::get_current()
+                .runtime_check_passed_increment();
+        }
+    }else{
+        if(this->message_.has_value()){
+            error.value().msg=this->message_.value();
+        }
+        if(::vnitest::ExecuteCaseInfo::has_current()){//in VNITEST_CASE
+            ::vnitest::ExecuteCaseInfo::get_current()
+                .runtime_check_failed_increment()
+                .runtime_check_failed_errors_push_back(error.value());
+        }else{//in other function
+            ::std::cerr
+                <<::vnitest::to_json(error.value())
+                <<::std::endl;
+        }
+    }
+}
+
+}//namespace vnitest
+//=============================================================================
+//#include<vnitest/runtime_assert_stream.cpp>
+//=============================================================================
+namespace vnitest{
+
+RuntimeAssertStream::RuntimeAssertStream(::vnitest::ConditionInfo const& ci)
+noexcept
+    :info_(ci)
+    ,message_({}){
+}
+RuntimeAssertStream::~RuntimeAssertStream(void)noexcept(false){
+    ::std::optional<::vnitest::RuntimeAssertFailedException> exception={};
+    if(!this->info_.condition){
+        exception=::vnitest::RuntimeAssertFailedException(
+            this->info_.file
+            ,this->info_.line
+            ,this->info_.info
+        );
+    }
+    if(::vnitest::ExecuteCaseInfo::has_current()){//in VNITEST_CASE
+        ::vnitest::ExecuteCaseInfo::get_current()
+            .runtime_assert_total_increment();
+    }
+    if(!exception.has_value()){
+        if(::vnitest::ExecuteCaseInfo::has_current()){//in VNITEST_CASE
+            ::vnitest::ExecuteCaseInfo::get_current()
+                .runtime_assert_passed_increment();
+        }
+    }else{
+        if(::vnitest::ExecuteCaseInfo::has_current()){//in VNITEST_CASE
+            ::vnitest::ExecuteCaseInfo::get_current()
+                .runtime_assert_failed_increment();
+        }
+        if(this->message_.has_value()){
+            exception.value().set_msg(this->message_.value());
+        }
+        throw exception.value();
+    }
+}
+
+}//namespace vnitest
+//=============================================================================
+//#include<vnitest/skip_stream.cpp>
+//=============================================================================
+namespace vnitest{
+
+SkipStream::SkipStream(::vnitest::SourceInfo const& si)noexcept
+    :info_(si),message_({})
+{}
+SkipStream::~SkipStream(void)noexcept(false){
+    auto se=::vnitest::SkipException(
+        this->info_.file
+        ,this->info_.line
+        ,this->info_.info
+    );
+    if(this->message_.has_value()){
+        se.set_msg(this->message_.value());
+    }
+    throw se;
+}
+
+}//namespace vnitest
+//=============================================================================
+//#include<vnitest/runtime_assert_failed_exception.cpp>
+//=============================================================================
+namespace vnitest{
+
+RuntimeAssertFailedException::RuntimeAssertFailedException(
+    ::std::string_view file
+    ,::std::string_view line
+    ,::std::string const& info
+    ,::std::optional<::std::string> const& msg
+)noexcept
+:file_(file),line_(line),info_(info),msg_(msg)
+{}
+char const* RuntimeAssertFailedException::what(void)const noexcept{
+    static ::std::string ret;
+    ret=::std::format(
+        "[FILE] {} [LINE] {} [INFO] {}"
+        ,this->file_
+        ,this->line_
+        ,this->info_
+    );
+    if(this->msg_.has_value()){
+        ret+=::std::format(" [MSG] {}",this->msg_.value());
+    }
+    return ret.c_str();
+}
+::std::string_view RuntimeAssertFailedException::file(void)const noexcept{
+    return this->file_;
+}
+::std::string_view RuntimeAssertFailedException::line(void)const noexcept{
+    return this->line_;
+}
+::std::string const& RuntimeAssertFailedException::info(void)const noexcept{
+    return this->info_;
+}
+bool RuntimeAssertFailedException::has_msg(void)const noexcept{
+    return this->msg_.has_value();
+}
+::std::string const& RuntimeAssertFailedException::msg(void)const noexcept{
+    return this->msg_.value();
+}
+void RuntimeAssertFailedException::set_msg(
+    ::std::optional<::std::string> const& msg
+)noexcept{
+    this->msg_=msg;
+}
+
+}//namespace vnitest
+//=============================================================================
+//#include<vnitest/skip_exception.cpp>
+//=============================================================================
+namespace vnitest{
+
+SkipException::SkipException(
+    ::std::string_view file
+    ,::std::string_view line
+    ,::std::string const& info
+    ,::std::optional<::std::string> const& msg
+)noexcept
+:file_(file),line_(line),info_(info),msg_(msg)
+{}
+char const* SkipException::what(void)const noexcept{
+    static ::std::string ret;
+    ret=::std::format(
+        "[FILE] {} [LINE] {} [INFO] {}"
+        ,this->file_
+        ,this->line_
+        ,this->info_
+    );
+    if(this->msg_.has_value()){
+        ret+=::std::format(" [MSG] {}",this->msg_.value());
+    }
+    return ret.c_str();
+}
+::std::string_view SkipException::file(void)const noexcept{
+    return this->file_;
+}
+::std::string_view SkipException::line(void)const noexcept{
+    return this->line_;
+}
+::std::string const& SkipException::info(void)const noexcept{
+    return this->info_;
+}
+bool SkipException::has_msg(void)const noexcept{
+    return this->msg_.has_value();
+}
+::std::string const& SkipException::msg(void)const noexcept{
+    return this->msg_.value();
+}
+void SkipException::set_msg(
+    ::std::optional<::std::string> const& msg
+)noexcept{
+    this->msg_=msg;
+}
+
+}//namespace vnitest
+//=============================================================================
+//#include<vnitest/execute_case_info.cpp>
+//=============================================================================
+namespace vnitest{
+
+ExecuteCaseInfo* ExecuteCaseInfo::current_=nullptr;
+
+ExecuteCaseInfo::ExecuteCaseInfo(::std::string_view case_name)noexcept
+    :case_name_(case_name)
+    ,group_name_({})
+    ,timer_({})
+    ,runtime_check_total_(0)
+    ,runtime_check_passed_(0)
+    ,runtime_check_failed_(0)
+    ,runtime_check_failed_errors_({})
+    ,runtime_assert_total_(0)
+    ,runtime_assert_passed_(0)
+    ,runtime_assert_failed_(0)
+    ,runtime_assert_failed_exception_({})
+    ,runtime_exception_({})
+    ,skip_exception_({})
+{}
+//case name
+ExecuteCaseInfo&
+ExecuteCaseInfo::set_case_name(::std::string_view case_name)noexcept{
+    this->case_name_=case_name;
+    return *this;
+}
+::std::string_view ExecuteCaseInfo::get_case_name(void)const noexcept{
+    return this->case_name_;
+}
+//group name
+bool ExecuteCaseInfo::has_group_name(void)const noexcept{
+    return this->group_name_.has_value();
+}
+ExecuteCaseInfo&
+ExecuteCaseInfo::set_group_name(::std::string_view group_name)noexcept{
+    this->group_name_=group_name;
+    return *this;
+}
+::std::string_view ExecuteCaseInfo::get_group_name(void)const noexcept{
+    return this->group_name_.value();
+}
+//execute time info
+ExecuteCaseInfo& ExecuteCaseInfo::execute_start(void)noexcept{
+    this->timer_.start();
+    return *this;
+}
+ExecuteCaseInfo& ExecuteCaseInfo::execute_stop(void)noexcept{
+    this->timer_.stop();
+    return *this;
+}
+double ExecuteCaseInfo::get_duration_ns(void)const noexcept{
+    return this->timer_.duration_nanoseconds();
+}
+::std::string ExecuteCaseInfo::get_duration_string(void)const noexcept{
+    return this->timer_.duration_string();
+}
+//runtime check
+bool ExecuteCaseInfo::has_runtime_check_failed_errors(void)const noexcept{
+    return !(this->runtime_check_failed_errors_.empty());
+}
+ExecuteCaseInfo& ExecuteCaseInfo::runtime_check_total_increment(void)noexcept{
+    ++(this->runtime_check_total_);
+    return *this;
+}
+ExecuteCaseInfo&
+ExecuteCaseInfo::runtime_check_passed_increment(void)noexcept{
+    ++(this->runtime_check_passed_);
+    return *this;
+}
+ExecuteCaseInfo&
+ExecuteCaseInfo::runtime_check_failed_increment(void)noexcept{
+    ++(this->runtime_check_failed_);
+    return *this;
+}
+::std::size_t ExecuteCaseInfo::get_runtime_check_total(void)const noexcept{
+    return this->runtime_check_total_;
+}
+::std::size_t ExecuteCaseInfo::get_runtime_check_passed(void)const noexcept{
+    return this->runtime_check_passed_;
+}
+::std::size_t ExecuteCaseInfo::get_runtime_check_failed(void)const noexcept{
+    return this->runtime_check_failed_;
+}
+double ExecuteCaseInfo::get_runtime_check_passed_rate(void)const noexcept{
+    return this->runtime_check_total_>0
+        ?static_cast<double>(this->runtime_check_passed_)
+            /this->runtime_check_total_
+        :1.0;
+}
+//runtime check failed errors
+ExecuteCaseInfo& ExecuteCaseInfo::runtime_check_failed_errors_push_back(
+    ::vnitest::RuntimeCheckFailedError const& error
+)noexcept{
+    this->runtime_check_failed_errors_.emplace_back(error);
+    return *this;
+}
+ExecuteCaseInfo const& ExecuteCaseInfo::runtime_check_failed_errors_foreach(
+    ::std::function<void(::vnitest::RuntimeCheckFailedError const&)>const&
+        func
+)const noexcept{
+    for(auto const& error:this->runtime_check_failed_errors_){
+        func(error);
+    }
+    return *this;
+}
+::std::vector<::vnitest::RuntimeCheckFailedError> const&
+    ExecuteCaseInfo::get_runtime_check_errors(void)const noexcept{
+    return this->runtime_check_failed_errors_;
+}
+//runtime assert
+ExecuteCaseInfo&
+ExecuteCaseInfo::runtime_assert_total_increment(void)noexcept{
+    ++(this->runtime_assert_total_);
+    return *this;
+}
+ExecuteCaseInfo&
+ExecuteCaseInfo::runtime_assert_passed_increment(void)noexcept{
+    ++(this->runtime_assert_passed_);
+    return *this;
+}
+ExecuteCaseInfo&
+ExecuteCaseInfo::runtime_assert_failed_increment(void)noexcept{
+    ++(this->runtime_assert_failed_);
+    return *this;
+}
+::std::size_t ExecuteCaseInfo::get_runtime_assert_total(void)const noexcept{
+    return this->runtime_assert_total_;
+}
+::std::size_t ExecuteCaseInfo::get_runtime_assert_passed(void)const noexcept{
+    return this->runtime_assert_passed_;
+}
+::std::size_t ExecuteCaseInfo::get_runtime_assert_failed(void)const noexcept{
+    return this->runtime_assert_failed_;
+}
+double ExecuteCaseInfo::get_runtime_assert_passed_rate(void)const noexcept{
+    return this->runtime_assert_total_>0
+        ?static_cast<double>(this->runtime_assert_passed_)
+            /this->runtime_assert_total_
+        :1.0;
+}
+//runtime assert failed exception
+ExecuteCaseInfo& ExecuteCaseInfo::set_runtime_assert_failed_exception(
+    ::vnitest::RuntimeAssertFailedException const& exception
+)noexcept{
+    this->runtime_assert_failed_exception_=exception;
+    return *this;
+}
+bool ExecuteCaseInfo::has_runtime_assert_failed_exception(void)const noexcept{
+    return this->runtime_assert_failed_exception_.has_value();
+}
+::vnitest::RuntimeAssertFailedException const&
+ExecuteCaseInfo::get_runtime_assert_failed_exception(void)const noexcept{
+    return this->runtime_assert_failed_exception_.value();
+}
+//runtime exception
+bool ExecuteCaseInfo::has_runtime_exception(void)const noexcept{
+    return this->runtime_exception_.has_value();
+}
+ExecuteCaseInfo& ExecuteCaseInfo::set_runtime_exception(
+    ::std::string const& exception_what
+)noexcept{
+    this->runtime_exception_=exception_what;
+    return *this;
+}
+::std::string const&
+ExecuteCaseInfo::get_runtime_exception(void)const noexcept{
+    return this->runtime_exception_.value();
+}
+//state
+ExecuteCaseInfo::State ExecuteCaseInfo::get_state(void)const noexcept{
+    if(this->is_undefined()){
+        return ExecuteCaseInfo::State::Undefined;
+    }
+    if(this->is_skipped()){
+        return ExecuteCaseInfo::State::Skipped;
+    }
+    if(this->is_failed()){
+        return ExecuteCaseInfo::State::Failed;
+    }
+    return ExecuteCaseInfo::State::Passed;
+}
+bool ExecuteCaseInfo::is_passed(void)const noexcept{
+    return (!this->is_undefined())
+        &&(!this->is_failed())
+        &&(!this->is_skipped());
+}
+bool ExecuteCaseInfo::is_failed(void)const noexcept{
+    if(this->is_undefined()){
+        return false;
+    }
+    if(this->is_skipped()){
+        return false;
+    }
+    return this->has_runtime_check_failed_errors()
+        || this->has_runtime_assert_failed_exception()
+        || this->has_runtime_exception();
+}
+bool ExecuteCaseInfo::is_skipped(void)const noexcept{
+    return (!this->is_undefined())&&(this->has_skip());
+}
+bool ExecuteCaseInfo::is_undefined(void)const noexcept{
+    return !(::vnitest::CaseDict::get().contains(this->case_name_));
+}
+//skip
+ExecuteCaseInfo&
+ExecuteCaseInfo::set_skip(::vnitest::SkipException const& se)noexcept{
+    this->skip_exception_=se;
+    return *this;
+}
+bool ExecuteCaseInfo::has_skip(void)const noexcept{
+    return this->skip_exception_.has_value();
+}
+::vnitest::SkipException const& ExecuteCaseInfo::get_skip(void)const noexcept{
+    return this->skip_exception_.value();
+}
+//current
+void ExecuteCaseInfo::set_current(ExecuteCaseInfo& info)noexcept{
+    ExecuteCaseInfo::current_=&info;
+}
+ExecuteCaseInfo& ExecuteCaseInfo::get_current(void)noexcept{
+    return *(ExecuteCaseInfo::current_);
+}
+bool ExecuteCaseInfo::has_current(void)noexcept{
+    return ExecuteCaseInfo::current_!=nullptr;
+}
+void ExecuteCaseInfo::reset_current(void)noexcept{
+    ExecuteCaseInfo::current_=nullptr;
+}
+
+}//namespace vnitest
+//=============================================================================
+//#include<vnitest/execute_group_info.cpp>
+//=============================================================================
+namespace vnitest{
+
+ExecuteGroupInfo::ExecuteGroupInfo(::std::string_view name)noexcept
+    :name_(name)
+    ,timer_({})
+    ,case_total_(0)
+    ,case_passed_(0)
+    ,case_failed_(0)
+    ,case_skipped_(0)
+    ,case_undefined_(0)
+    ,data_({})
+{}
+//group name
+ExecuteGroupInfo& ExecuteGroupInfo::set_name(::std::string_view name)noexcept{
+    this->name_=name;
+    return *this;
+}
+::std::string_view ExecuteGroupInfo::get_name(void)const noexcept{
+    return this->name_;
+}
+//execute time info
+ExecuteGroupInfo& ExecuteGroupInfo::execute_start(void)noexcept{
+    this->timer_.start();
+    return *this;
+}
+ExecuteGroupInfo& ExecuteGroupInfo::execute_stop(void)noexcept{
+    this->timer_.stop();
+    return *this;
+}
+double ExecuteGroupInfo::get_duration_ns(void)const noexcept{
+    return this->timer_.duration_nanoseconds();
+}
+::std::string ExecuteGroupInfo::get_duration_string(void)const noexcept{
+    return this->timer_.duration_string();
+}
+//case
+ExecuteGroupInfo& ExecuteGroupInfo::case_total_increment(void)noexcept{
+    ++(this->case_total_);
+    return *this;
+}
+ExecuteGroupInfo& ExecuteGroupInfo::case_passed_increment(void)noexcept{
+    ++(this->case_passed_);
+    return *this;
+}
+ExecuteGroupInfo& ExecuteGroupInfo::case_failed_increment(void)noexcept{
+    ++(this->case_failed_);
+    return *this;
+}
+ExecuteGroupInfo& ExecuteGroupInfo::case_skipped_increment(void)noexcept{
+    ++(this->case_skipped_);
+    return *this;
+}
+ExecuteGroupInfo& ExecuteGroupInfo::case_undefined_increment(void)noexcept{
+    ++(this->case_undefined_);
+    return *this;
+}
+::std::size_t ExecuteGroupInfo::get_case_total(void)const noexcept{
+    return this->case_total_;
+}
+::std::size_t ExecuteGroupInfo::get_case_passed(void)const noexcept{
+    return this->case_passed_;
+}
+::std::size_t ExecuteGroupInfo::get_case_failed(void)const noexcept{
+    return this->case_failed_;
+}
+::std::size_t ExecuteGroupInfo::get_case_skipped(void)const noexcept{
+    return this->case_skipped_;
+}
+::std::size_t ExecuteGroupInfo::get_case_undefined(void)const noexcept{
+    return this->case_undefined_;
+}
+double ExecuteGroupInfo::get_case_passed_rate(void)const noexcept{
+    if(this->case_total_==0){
+        return 1.0;
+    }else{
+        return static_cast<double>(this->case_passed_)/this->case_total_;
+    }
+}
+//state
+ExecuteGroupInfo::State ExecuteGroupInfo::get_state(void)const noexcept{
+    if(this->is_passed()){
+        return ExecuteGroupInfo::State::Passed;
+    }else if(this->is_failed()){
+        return ExecuteGroupInfo::State::Failed;
+    }else if(this->is_skipped()){
+        return ExecuteGroupInfo::State::Skipped;
+    }
+    return ExecuteGroupInfo::State::Undefined;
+}
+bool ExecuteGroupInfo::is_passed(void)const noexcept{
+    return (!this->is_undefined())
+        &&(this->case_total_==this->case_passed_);
+}
+bool ExecuteGroupInfo::is_failed(void)const noexcept{
+    return (!this->is_undefined())
+        &&(this->case_total_!=0)
+        &&(this->case_failed_>0);
+}
+bool ExecuteGroupInfo::is_skipped(void)const noexcept{
+    return (!this->is_undefined())
+        &&(this->case_total_!=0)
+        &&(this->case_skipped_>0);
+}
+bool ExecuteGroupInfo::is_undefined(void)const noexcept{
+    return !(::vnitest::GroupDict::get().contains(this->name_));
+}
+ExecuteGroupInfo& ExecuteGroupInfo::data_push_back(
+    ::std::string_view case_name
+    ,::vnitest::ExecuteCaseInfo const& case_info
+)noexcept{
+    this->data_.emplace_back(case_info);
+    return *this;
+}
+ExecuteGroupInfo& ExecuteGroupInfo::data_push_back(
+    ::std::string_view case_regex_pattern
+    ,::std::vector<::vnitest::ExecuteCaseInfo> const& case_regex_info
+)noexcept{
+    this->data_.emplace_back(
+        typename ExecuteGroupInfo::case_regex_info_type{
+            case_regex_pattern
+            ,case_regex_info
+        }
+    );
+    return *this;
+}
+::std::vector<typename ExecuteGroupInfo::element_type>const&
+ExecuteGroupInfo::get_data(void)const noexcept{
+    return this->data_;
+}
+
+}//namespace vnitest
+//=============================================================================
+//#include<vnitest/execute.cpp>
+//=============================================================================
+namespace vnitest{
+
+::vnitest::ExecuteCaseInfo execute_case(
+    ::std::string_view case_name
+)noexcept{
+    auto& case_dict=::vnitest::CaseDict::get();
+    if(!case_dict.contains(case_name)){
+        return ::vnitest::ExecuteCaseInfo{case_name};
+    }
+    auto const& case_body=case_dict.get(case_name);
+    ::vnitest::ExecuteCaseInfo ci;
+    ::vnitest::ExecuteCaseInfo::set_current(ci);
+    ci.set_case_name(case_name)
+        .execute_start();
+    try{
+        case_body();
+    }catch(
+        ::vnitest::RuntimeAssertFailedException const&
+        runtime_assert_failed_exception
+    ){
+        ci.execute_stop();
+        ci.set_runtime_assert_failed_exception(
+            runtime_assert_failed_exception
+        );
+        ::vnitest::ExecuteCaseInfo::reset_current();
+        return ci;
+    }catch(::vnitest::SkipException const& skip_exception){
+        ci.execute_stop();
+        ci.set_skip(skip_exception);
+        ::vnitest::ExecuteCaseInfo::reset_current();
+        return ci;
+    }catch(::std::exception const& std_exception){
+        ci.execute_stop();
+        ci.set_runtime_exception(
+            ::std::format("::std::exception{{{}}}",std_exception.what())
+        );
+        ::vnitest::ExecuteCaseInfo::reset_current();
+        return ci;
+    }catch(char const* c_str){
+        ci.execute_stop();
+        ci.set_runtime_exception(::std::format("char const*{{{}}}",c_str));
+        ::vnitest::ExecuteCaseInfo::reset_current();
+        return ci;
+    }catch(::std::string_view std_sv){
+        ci.execute_stop();
+        ci.set_runtime_exception(
+            ::std::format("::std::string_view{{{}}}",std_sv)
+        );
+        ::vnitest::ExecuteCaseInfo::reset_current();
+        return ci;
+    }catch(::std::string const& std_str){
+        ci.execute_stop();
+        ci.set_runtime_exception(
+            ::std::format("::std::string{{{}}}",std_str)
+        );
+        ::vnitest::ExecuteCaseInfo::reset_current();
+        return ci;
+    }catch(...){
+        ci.execute_stop();
+        ci.set_runtime_exception("Unknown{...}");
+        ::vnitest::ExecuteCaseInfo::reset_current();
+        return ci;
+    }
+    ci.execute_stop();
+    ::vnitest::ExecuteCaseInfo::reset_current();
+    return ci;
+}
+
+::std::vector<::vnitest::ExecuteCaseInfo> execute_case(
+    ::std::regex const& case_name_regex
+)noexcept{
+    ::std::vector<::vnitest::ExecuteCaseInfo> ret={};
+    ::vnitest::CaseDict::get().foreach(
+        [&](::std::string_view case_name,auto const& case_body)
+        #ifndef _MSC_VER
+            noexcept
+        #endif
+        {
+            static ::std::string name={};
+            name=case_name;//::std::string_view to ::std::string
+            if(::std::regex_match(name,case_name_regex)){
+                ret.emplace_back(::vnitest::execute_case(case_name));
+            }
+        }
+    );
+    return ret;
+}
+
+::std::vector<::vnitest::ExecuteCaseInfo> execute_case(
+    ::std::vector<::std::variant<::std::string_view,::std::regex>> const&
+        case_name_list
+)noexcept{
+    ::std::vector<::vnitest::ExecuteCaseInfo> ret={};
+    for(auto const& element:case_name_list){
+        if(::std::holds_alternative<::std::string_view>(element)){
+            auto const& case_name=::std::get<::std::string_view>(element);
+            ret.emplace_back(::vnitest::execute_case(case_name));
+        }else{
+            auto const& case_regex=::std::get<::std::regex>(element);
+            auto ri=::vnitest::execute_case(case_regex);
+            for(auto const& info:ri){
+                ret.emplace_back(info);
+            }
+        }
+    }
+    return ret;
+}
+
+::std::vector<::vnitest::ExecuteCaseInfo> execute_case_all(void)noexcept{
+    ::std::vector<::vnitest::ExecuteCaseInfo> ret={};
+    ::vnitest::CaseDict::get().foreach(
+        [&](::std::string_view case_name,auto const& case_body)
+        #ifndef _MSC_VER
+            noexcept
+        #endif
+        {
+            ret.emplace_back(::vnitest::execute_case(case_name));
+        }
+    );
+    return ret;
+}
+
+::std::vector<::vnitest::ExecuteCaseInfo> execute_case(
+    ::std::initializer_list<::std::variant<::std::string_view,::std::regex>>
+        case_name_list
+)noexcept{
+    return ::vnitest::execute_case(
+        ::std::vector<::std::variant<::std::string_view,::std::regex>>{
+            case_name_list
+        }
+    );
+}
+
+::vnitest::ExecuteGroupInfo execute_group(
+    ::std::string_view group_name
+)noexcept{
+    auto& group_dict=::vnitest::GroupDict::get();
+    if(!group_dict.contains(group_name)){
+        return ::vnitest::ExecuteGroupInfo{group_name};
+    }
+    auto const& group_data=*(group_dict.get(group_name));
+    auto& case_dict=::vnitest::CaseDict::get();
+    ::vnitest::ExecuteGroupInfo ei;
+    auto ei_case_increment=[&](::vnitest::ExecuteCaseInfo const& ci){
+        ei.case_total_increment();
+        if(ci.is_passed()){
+            ei.case_passed_increment();
+        }else if(ci.is_failed()){
+            ei.case_failed_increment();
+        }else if(ci.is_skipped()){
+            ei.case_skipped_increment();
+        }else{
+            ei.case_undefined_increment();
+        }
+    };
+    ei.set_name(group_name);
+    ei.execute_start();
+    for(auto const& element:group_data){
+        if(std::holds_alternative<::std::string_view>(element)){
+            auto const& case_name=::std::get<::std::string_view>(element);
+            auto ci=::vnitest::execute_case(case_name);
+            ci.set_group_name(ei.get_name());
+            ei_case_increment(ci);
+            ei.data_push_back(case_name,ci);
+        }else{
+            auto const& case_regex=::std::get<::vnitest::RegEx>(element);
+            auto ri=::vnitest::execute_case(case_regex.object);
+            for(auto& ci:ri){
+                ci.set_group_name(ei.get_name());
+                ei_case_increment(ci);
+            }
+            ei.data_push_back(case_regex.pattern,ri);
+        }
+    }
+    ei.execute_stop();
+    return ei;
+}
+
+::std::vector<::vnitest::ExecuteGroupInfo> execute_group(
+    ::std::regex const& group_name_regex
+)noexcept{
+    ::std::vector<::vnitest::ExecuteGroupInfo> ret={};
+    ::vnitest::GroupDict::get().foreach(
+        [&](::std::string_view group_name,auto const& group_body)
+        #ifndef _MSC_VER
+            noexcept
+        #endif
+        {
+            static ::std::string name={};
+            name=group_name;//::std::string_view to ::std::string
+            if(::std::regex_match(name,group_name_regex)){
+                ret.emplace_back(::vnitest::execute_group(group_name));
+            }
+        }
+    );
+    return ret;
+}
+
+::std::vector<::vnitest::ExecuteGroupInfo> execute_group(
+    ::std::vector<::std::variant<::std::string_view,::std::regex>> const&
+        group_name_list
+)noexcept{
+    ::std::vector<::vnitest::ExecuteGroupInfo> ret={};
+    for(auto const& element:group_name_list){
+        if(::std::holds_alternative<::std::string_view>(element)){
+            auto const& group_name=::std::get<::std::string_view>(element);
+            ret.emplace_back(::vnitest::execute_group(group_name));
+        }else{
+            auto const& group_regex=::std::get<::std::regex>(element);
+            auto ri=::vnitest::execute_group(group_regex);
+            for(auto const& info:ri){
+                ret.emplace_back(info);
+            }
+        }
+    }
+    return ret;
+}
+
+::std::vector<::vnitest::ExecuteGroupInfo> execute_group(
+    ::std::initializer_list<::std::variant<::std::string_view,::std::regex>>
+        group_name_list
+)noexcept{
+    return ::vnitest::execute_group(
+        ::std::vector<::std::variant<::std::string_view,::std::regex>>{
+            group_name_list
+        }
+    );
+}
+
+::std::vector<::vnitest::ExecuteGroupInfo> execute_group_all(void)noexcept{
+    ::std::vector<::vnitest::ExecuteGroupInfo> ret={};
+    ::vnitest::GroupDict::get().foreach(
+        [&](::std::string_view group_name,auto const& group_body)
+        #ifndef _MSC_VER
+            noexcept
+        #endif
+        {
+            ret.emplace_back(::vnitest::execute_group(group_name));
+        }
+    );
+    return ret;
+}
+
+::std::string execute_case_to_json(
+    ::std::string_view case_name
+)noexcept{
+    return ::vnitest::to_json(::vnitest::execute_case(case_name));
+}
+
+::std::string execute_case_to_json(
+    ::std::regex const& case_name_regex
+)noexcept{
+    return ::vnitest::to_json(::vnitest::execute_case(case_name_regex));
+}
+
+::std::string execute_case_to_json(
+    ::std::vector<::std::variant<::std::string_view,::std::regex>> const&
+        case_name_list
+)noexcept{
+    return ::vnitest::to_json(::vnitest::execute_case(case_name_list));
+}
+
+::std::string execute_case_to_json(
+    ::std::initializer_list<::std::variant<::std::string_view,::std::regex>>
+        case_name_list
+)noexcept{
+    return ::vnitest::execute_case_to_json(
+        ::std::vector<::std::variant<::std::string_view,::std::regex>>{
+            case_name_list
+        }
+    );
+}
+
+::std::string execute_case_all_to_json(void)noexcept{
+    return ::vnitest::to_json(::vnitest::execute_case_all());
+}
+
+::std::string execute_group_to_json(
+    ::std::string_view group_name
+)noexcept{
+    return ::vnitest::to_json(::vnitest::execute_group(group_name));
+}
+
+::std::string execute_group_to_json(
+    ::std::regex const& group_name_regex
+)noexcept{
+    return
+        ::vnitest::to_json(::vnitest::execute_group(group_name_regex));
+}
+
+::std::string execute_group_to_json(
+    ::std::vector<::std::variant<::std::string_view,::std::regex>> const&
+        group_name_list
+)noexcept{
+    return
+        ::vnitest::to_json(::vnitest::execute_group(group_name_list));
+}
+
+::std::string execute_group_to_json(
+    ::std::initializer_list<::std::variant<::std::string_view,::std::regex>>
+        group_name_list
+)noexcept{
+    return ::vnitest::execute_group_to_json(
+        ::std::vector<::std::variant<::std::string_view,::std::regex>>{
+            group_name_list
+        }
+    );
+}
+
+::std::string execute_group_all_to_json(void)noexcept{
+    return ::vnitest::to_json(::vnitest::execute_group_all());
+}
+
+}//namespace vnitest
+//=============================================================================
+//#include<vnitest/to_json.cpp>
+//=============================================================================
+namespace vnitest{
+
+namespace detail{
+
+::std::string string_to_json(::std::string_view input)noexcept{
+    ::std::ostringstream oss;
+    oss<<"\"";
+    for(char ch:input){
+        switch(ch){
+            case '\"':{ oss<<R"(\")"; break; }
+            case '\\':{ oss<<R"(\\)"; break; }
+            case '\n':{ oss<<R"(\n)"; break; }
+            case '\r':{ oss<<R"(\r)"; break; }
+            case '\t':{ oss<<R"(\t)"; break; }
+            case '\b':{ oss<<R"(\b)"; break; }
+            case '\f':{ oss<<R"(\f)"; break; }
+            default  :{
+                //ASCII 0-31
+                if(static_cast<unsigned char>(ch)<=0x1F){
+                    oss<<"\\u00"<<::std::hex<<::std::uppercase
+                        <<::std::setw(2)<<::std::setfill('0')
+                        <<static_cast<unsigned int>(
+                            static_cast<unsigned char>(ch)
+                        );
+                }else{
+                    oss<<ch;
+                }
+                break;
+            }
+        }
+    }
+    oss<<"\"";
+    return oss.str();
+}
+
+}//namespace vnitest::detail
+
+::std::string to_json(
+    bool condition
+    ,::std::size_t tab_width
+    ,::std::size_t current_tab_number
+)noexcept{
+    return condition?"true":"false";
+}
+
+::std::string to_json(
+    ::std::string_view sv
+    ,::std::size_t tab_width
+    ,::std::size_t current_tab_number
+)noexcept{
+    return ::vnitest::detail::string_to_json(sv);
+}
+
+::std::string to_json(
+    ::std::string const& str
+    ,::std::size_t tab_width
+    ,::std::size_t current_tab_number
+)noexcept{
+    return ::vnitest::detail::string_to_json(str);
+}
+
+::std::string to_json(
+    ::std::size_t size
+    ,::std::size_t tab_width
+    ,::std::size_t current_tab_number
+)noexcept{
+    return ::std::to_string(size);
+}
+
+::std::string to_json(
+    double number
+    ,::std::size_t tab_width
+    ,::std::size_t current_tab_number
+)noexcept{
+    if(::std::isnan(number)){
+        return "null";
+    }
+    if(::std::isinf(number)){
+        return (number>0)?"1e999":"-1e999";
+    }
+    constexpr double u64_max=
+        static_cast<double>(::std::numeric_limits<unsigned long long>::max());
+    constexpr double i64_min=
+        static_cast<double>(::std::numeric_limits<long long>::min());
+    if(number>=i64_min&&number<=u64_max){
+        if(number>=0){
+            return ::std::to_string(static_cast<unsigned long long>(number));
+        }else{
+            return ::std::to_string(static_cast<long long>(number));
+        }
+    }
+    ::std::array<char,32> buffer;
+    auto[ptr,ec]=
+        ::std::to_chars(buffer.data(),buffer.data()+buffer.size(),number);
+    return(ec==::std::errc{})?::std::string(buffer.data(),ptr):"null";
+}
+
+::std::string to_json(
+    ::vnitest::RuntimeAssertFailedException const& exception
+    ,::std::size_t tab_width
+    ,::std::size_t current_tab_number
+)noexcept{
+    ::std::string ret={"{"};
+    ::std::size_t current_space_number=tab_width*current_tab_number;
+    ::std::size_t next_space_number=tab_width*(current_tab_number+1);
+    ::std::size_t next_tab_number=current_tab_number+1;
+    auto ret_append=[&](::std::string_view name,auto const& value)noexcept{
+        ret+=::std::format(
+            "\n{}{}:{},"
+            ,::std::string(next_space_number,' ')
+            ,::vnitest::to_json(name)
+            ,::vnitest::to_json(value,tab_width,next_tab_number)
+        );
+    };
+    ret_append("file",exception.file());
+    ret_append("line",exception.line());
+    ret_append("info",exception.info());
+    if(exception.has_msg()){
+        ret_append("msg",exception.msg());
+    }
+    ret.pop_back();//remove last ','
+    ret+=::std::format("\n{}}}",::std::string(current_space_number,' '));
+    return ret;
+}
+
+::std::string to_json(
+    ::vnitest::RuntimeCheckFailedError const& error
+    ,::std::size_t tab_width
+    ,::std::size_t current_tab_number
+)noexcept{
+    ::std::string ret={"{"};
+    ::std::size_t current_space_number=tab_width*current_tab_number;
+    ::std::size_t next_space_number=tab_width*(current_tab_number+1);
+    ::std::size_t next_tab_number=current_tab_number+1;
+    auto ret_append=[&](::std::string_view name,auto const& value)noexcept{
+        ret+=::std::format(
+            "\n{}{}:{},"
+            ,::std::string(next_space_number,' ')
+            ,::vnitest::to_json(name)
+            ,::vnitest::to_json(value,tab_width,next_tab_number)
+        );
+    };
+    ret_append("file",error.file);
+    ret_append("line",error.line);
+    ret_append("info",error.info);
+    if(error.msg.has_value()){
+        ret_append("msg",error.msg.value());
+    }
+    ret.pop_back();//remove last ','
+    ret+=::std::format("\n{}}}",::std::string(current_space_number,' '));
+    return ret;
+}
+
+::std::string to_json(
+    ::vnitest::SkipException const& exception
+    ,::std::size_t tab_width
+    ,::std::size_t current_tab_number
+)noexcept{
+    ::std::string ret={"{"};
+    ::std::size_t current_space_number=tab_width*current_tab_number;
+    ::std::size_t next_space_number=tab_width*(current_tab_number+1);
+    ::std::size_t next_tab_number=current_tab_number+1;
+    auto ret_append=[&](::std::string_view name,auto const& value)noexcept{
+        ret+=::std::format(
+            "\n{}{}:{},"
+            ,::std::string(next_space_number,' ')
+            ,::vnitest::to_json(name)
+            ,::vnitest::to_json(value,tab_width,next_tab_number)
+        );
+    };
+    ret_append("file",exception.file());
+    ret_append("line",exception.line());
+    ret_append("info",exception.info());
+    if(exception.has_msg()){
+        ret_append("msg",exception.msg());
+    }
+    ret.pop_back();//remove last ','
+    ret+=::std::format("\n{}}}",::std::string(current_space_number,' '));
+    return ret;
+}
+
+::std::string to_json(
+    ::std::vector<::vnitest::RuntimeCheckFailedError>const& errors
+    ,::std::size_t tab_width
+    ,::std::size_t current_tab_number
+)noexcept{
+    ::std::string ret={"["};
+    for(auto const& element:errors){
+        ret+=::std::format(
+            "\n{}{},"
+            ,::std::string(tab_width*(current_tab_number+1),' ')
+            ,::vnitest::to_json(element,tab_width,current_tab_number+1)
+        );
+    }
+    if(!errors.empty()){
+        ret.pop_back();//remove last ','
+        ret+=::std::format(
+            "\n{}",::std::string(tab_width*current_tab_number,' ')
+        );
+    }
+    ret+=']';
+    return ret;
+}
+
+::std::string to_json(
+    ::vnitest::ExecuteCaseInfo const& ei
+    ,::std::size_t tab_width
+    ,::std::size_t current_tab_number
+)noexcept{
+    if(ei.is_undefined()){
+        return "null";
+    }
+    ::std::string ret={"{"};
+    ::std::size_t current_space_number=tab_width*current_tab_number;
+    ::std::size_t next_space_number=tab_width*(current_tab_number+1);
+    ::std::size_t next_tab_number=current_tab_number+1;
+    auto ret_append=[&](::std::string_view name,auto const& value)noexcept{
+        ret+=::std::format(
+            "\n{}{}:{},"
+            ,::std::string(next_space_number,' ')
+            ,::vnitest::to_json(name)
+            ,::vnitest::to_json(value,tab_width,next_tab_number)
+        );
+    };
+    //name
+    ret_append("case name",ei.get_case_name());
+    if(ei.has_group_name()){
+        ret_append("group name",ei.get_group_name());
+    }
+    //duration
+    ret_append("duration ns",ei.get_duration_ns());
+    ret_append("duration string",ei.get_duration_string());
+    //runtime check
+    ret_append("runtime check total",ei.get_runtime_check_total());
+    ret_append("runtime check passed",ei.get_runtime_check_passed());
+    ret_append("runtime check failed",ei.get_runtime_check_failed());
+    ret_append(
+        "runtime check passed rate",ei.get_runtime_check_passed_rate()
+    );
+    //runtime assert
+    ret_append("runtime assert total",ei.get_runtime_assert_total());
+    ret_append("runtime assert passed",ei.get_runtime_assert_passed());
+    ret_append("runtime assert failed",ei.get_runtime_assert_failed());
+    ret_append(
+        "runtime assert passed rate",ei.get_runtime_assert_passed_rate()
+    );
+    //state
+    ret_append("is passed",ei.is_passed());
+    ret_append("is failed",ei.is_failed());
+    ret_append("is skipped",ei.is_skipped());
+    ret_append("is undefined",ei.is_undefined());
+    //runtime check errors
+    if(ei.has_runtime_check_failed_errors()){
+        ret_append(
+            "runtime check failed errors"
+            ,ei.get_runtime_check_errors()
+        );
+    };
+    //runtime assert failed exception
+    if(ei.has_runtime_assert_failed_exception()){
+        ret_append(
+            "runtime assert failed exception"
+            ,ei.get_runtime_assert_failed_exception()
+        );
+    }
+    //runtime exception
+    if(ei.has_runtime_exception()){
+        ret_append(
+            "runtime exception"
+            ,ei.get_runtime_exception()
+        );
+    }
+    //skip
+    if(ei.has_skip()){
+        ret_append("skip",ei.get_skip());
+    }
+    //
+    ret.pop_back();//remove last ','
+    ret+=::std::format("\n{}}}",::std::string(current_space_number,' '));
+    return ret;
+}
+
+::std::string to_json(
+    ::std::vector<::vnitest::ExecuteCaseInfo> const& ei_vec
+    ,::std::size_t tab_width
+    ,::std::size_t current_tab_number
+)noexcept{
+    ::std::string ret={"["};
+    for(auto const& ei:ei_vec){
+        ret+=::std::format(
+            "\n{}{},"
+            ,::std::string(tab_width*(current_tab_number+1),' ')
+            ,::vnitest::to_json(ei,tab_width,current_tab_number+1)
+        );
+    }
+    if(!ei_vec.empty()){
+        ret.pop_back();//remove last ','
+        ret+=::std::format(
+            "\n{}",::std::string(tab_width*current_tab_number,' ')
+        );
+    }
+    ret+=']';
+    return ret;
+}
+
+::std::string to_json(
+    ::vnitest::ExecuteGroupInfo const& ei
+    ,::std::size_t tab_width
+    ,::std::size_t current_tab_number
+)noexcept{
+    if(ei.is_undefined()){
+        return "null";
+    }
+    ::std::string ret={"{"};
+    ::std::size_t current_space_number=tab_width*current_tab_number;
+    ::std::size_t next_space_number=tab_width*(current_tab_number+1);
+    ::std::size_t next_tab_number=current_tab_number+1;
+    auto ret_append=[&](::std::string_view name,auto const& value)noexcept{
+        ret+=::std::format(
+            "\n{}{}:{},"
+            ,::std::string(next_space_number,' ')
+            ,::vnitest::to_json(name)
+            ,::vnitest::to_json(value,tab_width,next_tab_number)
+        );
+    };
+    //name
+    ret_append("name",ei.get_name());
+    //duration
+    ret_append("duration ns",ei.get_duration_ns());
+    ret_append("duration string",ei.get_duration_string());
+    //runtime check
+    ret_append("case total",ei.get_case_total());
+    ret_append("case passed",ei.get_case_passed());
+    ret_append("case failed",ei.get_case_failed());
+    ret_append("case skipped",ei.get_case_skipped());
+    ret_append("case undefined",ei.get_case_undefined());
+    ret_append(
+        "case passed rate",ei.get_case_passed_rate()
+    );
+    //state
+    ret_append("is passed",ei.is_passed());
+    ret_append("is failed",ei.is_failed());
+    ret_append("is skipped",ei.is_skipped());
+    ret_append("is undefined",ei.is_undefined());
+    //data
+    ret+=std::format(
+        "\n{}{}:{{"
+        ,::std::string(next_space_number,' ')
+        ,::vnitest::to_json(std::string_view{"data"})
+    );
+    for(auto const& info:ei.get_data()){
+        if(::std::holds_alternative<::vnitest::ExecuteCaseInfo>(info)){
+            auto const& ci=::std::get<::vnitest::ExecuteCaseInfo>(info);
+            ret+=::std::format(
+                "\n{}{}:{},"
+                ,::std::string(tab_width*(current_tab_number+2),' ')
+                ,::vnitest::to_json(ci.get_case_name())
+                ,::vnitest::to_json(ci,tab_width,current_tab_number+2)
+            );
+        }else{
+            auto const& ri=::std::get<
+                typename ::vnitest::ExecuteGroupInfo::case_regex_info_type
+            >(info);
+            ret+=::std::format(
+                "\n{}{}:{},"
+                ,::std::string(tab_width*(current_tab_number+2),' ')
+                ,::vnitest::to_json(::std::get<0>(ri))
+                ,::vnitest::to_json(
+                    ::std::get<1>(ri),tab_width,current_tab_number+2
+                )
+            );
+        }
+    }
+    if(!ei.get_data().empty()){
+        ret.pop_back();//remove last ','
+        ret+=::std::format(
+            "\n{}",::std::string(next_space_number,' ')
+        );
+    }
+    ret+='}';
+    //
+    ret+=::std::format("\n{}}}",::std::string(current_space_number,' '));
+    return ret;
+}
+
+::std::string to_json(
+    ::std::vector<::vnitest::ExecuteGroupInfo> const& ei_vec
+    ,::std::size_t tab_width
+    ,::std::size_t current_tab_number
+)noexcept{
+    ::std::string ret={"["};
+    for(auto const& ei:ei_vec){
+        ret+=::std::format(
+            "\n{}{},"
+            ,::std::string(tab_width*(current_tab_number+1),' ')
+            ,::vnitest::to_json(ei,tab_width,current_tab_number+1)
+        );
+    }
+    if(!ei_vec.empty()){
+        ret.pop_back();//remove last ','
+        ret+=::std::format(
+            "\n{}",::std::string(tab_width*current_tab_number,' ')
+        );
+    }
+    ret+=']';
+    return ret;
+}
+
+}//namespace vnitest
+
+#endif//VNITEST_H

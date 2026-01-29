@@ -3,8 +3,12 @@ get_filename_component(PROJECT_NAME ${CMAKE_CURRENT_SOURCE_DIR} NAME)
 project(${PROJECT_NAME} LANGUAGES CXX)
 set(CMAKE_CXX_STANDARD 20)
 include_directories(include)
+#for single-include
+#include_directories(single-include)
 include_directories(tests)
 aux_source_directory(source/${PROJECT_NAME} SOURCE_DIR)
+#for single-include
+#aux_source_directory(single-include/${PROJECT_NAME} SOURCE_DIR)
 aux_source_directory(tests TESTS_DIR)
 add_executable(${PROJECT_NAME} ${SOURCE_DIR} ${TESTS_DIR})
 if(MSVC)

@@ -1,6 +1,7 @@
 #include<vnitest/runtime_check_stream.hpp>
 
 #include<iostream>//::std::cerr ::std::endl
+#include<optional>//::std::nullopt
 
 #include<vnitest/runtime_check_failed_error.h>
 #include<vnitest/execute_case_info.h>
@@ -11,7 +12,7 @@ namespace vnitest{
 RuntimeCheckStream::RuntimeCheckStream(::vnitest::ConditionInfo const& ci)
 noexcept
     :info_(ci)
-    ,message_({})
+    ,message_(::std::nullopt)
 {}
 RuntimeCheckStream::~RuntimeCheckStream(void)noexcept{
     ::std::optional<::vnitest::RuntimeCheckFailedError> error={};

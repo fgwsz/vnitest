@@ -30,7 +30,7 @@
 #include<regex>//::std::regex ::std::regex_match
 #include<chrono>//::std::chrono
 //C++ 17
-#include<optional>//::std::optional
+#include<optional>//::std::optional ::std::nullopt
 #include<variant>//::std::variant
 #include<string_view>//::std::string_view
 #include<charconv>//::std::to_chars
@@ -1516,11 +1516,10 @@ void Timer::start(void)noexcept{
 }
 void Timer::stop(void)noexcept{
     if(this->state_==State::RUNNING){
-        this->total_duration_=
+        this->total_duration_+=
             ::std::chrono::duration_cast<::std::chrono::nanoseconds>(
                 ::std::chrono::steady_clock::now()-this->start_time_
-            ).count()
-            +this->total_duration_;
+            ).count();
         this->state_=State::STOPPED;
     }
 }
@@ -1625,7 +1624,7 @@ namespace vnitest{
 RuntimeCheckStream::RuntimeCheckStream(::vnitest::ConditionInfo const& ci)
 noexcept
     :info_(ci)
-    ,message_({})
+    ,message_(::std::nullopt)
 {}
 RuntimeCheckStream::~RuntimeCheckStream(void)noexcept{
     ::std::optional<::vnitest::RuntimeCheckFailedError> error={};

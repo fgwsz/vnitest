@@ -19,11 +19,10 @@ void Timer::start(void)noexcept{
 }
 void Timer::stop(void)noexcept{
     if(this->state_==State::RUNNING){
-        this->total_duration_=
+        this->total_duration_+=
             ::std::chrono::duration_cast<::std::chrono::nanoseconds>(
                 ::std::chrono::steady_clock::now()-this->start_time_
-            ).count()
-            +this->total_duration_;
+            ).count();
         this->state_=State::STOPPED;
     }
 }

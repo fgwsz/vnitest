@@ -5,6 +5,7 @@ read -p "Input Git Commit Info: " commit_info
 if [ "$commit_info" != "q" ]; then
     cd "$root_path"
     git add ./include/*
+    git add ./single-include/*
     git add ./source/*
     git add ./tests/*
     git add ./CMakeLists.txt

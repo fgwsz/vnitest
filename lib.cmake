@@ -46,5 +46,5 @@ add_custom_target(package
 
 # 平台特定设置
 if(MSVC)
-    add_compile_options(/utf-8)
+    target_compile_options(${PROJECT_NAME} PRIVATE "/utf-8")
 endif()

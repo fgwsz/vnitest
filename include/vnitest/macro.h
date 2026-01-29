@@ -1,4 +1,5 @@
 #ifndef VNITEST_MACRO_H
+#define VNITEST_MACRO_H
 
 #define VNITEST_STRINGIFY(...) #__VA_ARGS__
 
